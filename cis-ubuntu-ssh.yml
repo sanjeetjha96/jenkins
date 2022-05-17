@@ -1,0 +1,112 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+
+    - name: 5.2.1 Ensure permissions on /etc/ssh/sshd_config are configured (Scored)
+      file:
+        path: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: 0640
+        state: file
+
+    - name: 5.2.2 Ensure SSH LogLevel is set to INFO (Scored)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^LogLevel'
+        line: 'LogLevel VERBOSE'
+
+    - name: 5.2.3 Ensure SSH root login is disabled (Scored)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+
+    - name: 5.2.4 Ensure SSH PermitEmptyPasswords is disabled (Scored)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitEmptyPasswords'
+        line: 'PermitEmptyPasswords no'
+
+    - name: 5.2.5 Ensure SSH Idle Timeout Interval is configured (Scored)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^{{item.name}}'
+        line: '{{item.name}} {{item.value}}'
+      with_items:
+        - { name: 'ClientAliveInterval' , value: '900' }
+        - { name: 'ClientAliveCountMax' , value: '0' }
+
+    - name: 5.2.13 Ensure SSH LoginGraceTime is set to one minute or less (Scored)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^LoginGraceTime'
+        line: 'LoginGraceTime 60'
+
+    - name: 5.2.14 Ensure SSH access is limited (Scored)
+      debug:
+        msg: "This must be completed manually."
+
+    - name: 5.4.1.5 Ensure all users last password change date is in the past (Scored)
+      debug:
+        msg: "This must be completed manually."
+
+#- name: 5.4.2 Ensure system accounts are non-login (Scored)
+#  shell: egrep -v "^\+" /etc/passwd | awk -F':' '($1!="root" && $1!="sync" && $1!="shutdown" && $1!="halt" && $3<1000 && $7!="/usr/sbin/nologin" && $7!="/bin/false") {print}'
+#  register: system_acounts
+#  changed_when: False
+
+#- name: 5.4.2 Ensure system accounts are non-login (Scored)
+#  shell: |
+#    for user in `awk -F: '($3 < 1000) {print $1 }' /etc/passwd`; do
+#      if [ $user != "root" ]; then
+#        usermod -L $user
+#        if [ $user != "sync" ] && [ $user != "shutdown" ] && [ $user != "halt" ]; then
+#          usermod -s /usr/sbin/nologin $user
+#        fi
+#      fi
+#    done
+#  args:
+#    executable: /bin/bash
+#    when: system_acounts.stdout != ""
+
+
+
+    - name: 5.4.3 Ensure default group for the root account is GID 0 (Scored)
+      command: grep "^root:" /etc/passwd | cut -f4 -d':'
+      register: root_gid
+      failed_when: False
+
+    - name: 5.4.3 Ensure default group for the root account is GID 0 (Scored)
+      command: usermod -g 0 root
+      when: root_gid !=0
+
+    - name: 5.4.4 Ensure default user umask is 027 or more restrictive (Scored)
+      lineinfile:
+        path: "{{ item }}"
+        line: 'umask 027'
+        regexp: '^umask'
+        state: present
+      with_items:
+       - '/etc/bash.bashrc'
+       - '/etc/profile'
+
+    - name: changing home directory permission
+      lineinfile:
+        path: /etc/adduser.conf
+        regexp: '^DIR_MODE=0755'
+        line: DIR_MODE=0750
+
+    - name: 5.5 Ensure root login is restricted to system console (Not Scored)
+      debug:
+        msg: "This must be completed manually."
+
+    - name: 5.6 Ensure access to the su command is restricted (Scored)
+      debug:
+        msg: "This must be completed manually."
+
+    - name: restart sshd service
+      service: 
+        name: sshd
+        state: restarted
